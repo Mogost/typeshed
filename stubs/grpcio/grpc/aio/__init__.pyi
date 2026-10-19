@@ -26,6 +26,7 @@ from grpc import (
     GenericRpcHandler,
     HandlerCallDetails,
     RpcError,
+    RpcMethodHandler,
     ServerCredentials,
     Status,
     StatusCode,
@@ -125,7 +126,7 @@ def secure_channel(
 
 def server(
     migration_thread_pool: futures.Executor | None = None,
-    handlers: Sequence[GenericRpcHandler] | None = None,
+    handlers: Sequence[GenericRpcHandler[RpcMethodHandler[Any, Any] | _AsyncRpcMethodHandler[Any, Any]]] | None = None,
     interceptors: Sequence[ServerInterceptor] | None = None,
     options: _Options | None = None,
     maximum_concurrent_rpcs: int | None = None,
@@ -185,7 +186,9 @@ class Channel(abc.ABC):
 
 class Server(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def add_generic_rpc_handlers(self, generic_rpc_handlers: Iterable[GenericRpcHandler]) -> None: ...
+    def add_generic_rpc_handlers(
+        self, generic_rpc_handlers: Iterable[GenericRpcHandler[RpcMethodHandler[Any, Any] | _AsyncRpcMethodHandler[Any, Any]]]
+    ) -> None: ...
 
     # Returns an integer port on which server will accept RPC requests.
     @abc.abstractmethod

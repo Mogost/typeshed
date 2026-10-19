@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
+from typing import TYPE_CHECKING, Any, TypeAlias
 from typing_extensions import assert_type
 
 import grpc
@@ -61,3 +62,38 @@ def nonblocking_watch(request: str, context: grpc.ServicerContext, send_response
 
 
 assert_type(grpc.unary_stream_rpc_method_handler(nonblocking_watch, bytes.decode, str.encode), grpc.RpcMethodHandler[str, str])
+
+
+# These classes are generic only in the stubs.
+if TYPE_CHECKING:
+    _AsyncGenericHandlerBase: TypeAlias = grpc.GenericRpcHandler[grpc.aio._AsyncRpcMethodHandler[str, str]]
+    _AsyncServiceHandlerBase: TypeAlias = grpc.ServiceRpcHandler[grpc.aio._AsyncRpcMethodHandler[str, str]]
+else:
+    _AsyncGenericHandlerBase = grpc.GenericRpcHandler
+    _AsyncServiceHandlerBase = grpc.ServiceRpcHandler
+
+
+# Custom handlers must accept async factory results without widening sync callers.
+class AsyncGenericHandler(_AsyncGenericHandlerBase):
+    def service(self, handler_call_details: grpc.HandlerCallDetails) -> grpc.aio._AsyncRpcMethodHandler[str, str] | None:
+        if handler_call_details.method == "/test.Async/Check":
+            return grpc.unary_unary_rpc_method_handler(async_unary)
+        return None
+
+
+class AsyncServiceHandler(_AsyncServiceHandlerBase):
+    def service(self, handler_call_details: grpc.HandlerCallDetails) -> grpc.aio._AsyncRpcMethodHandler[str, str]:
+        return grpc.unary_unary_rpc_method_handler(async_unary)
+
+    def service_name(self) -> str:
+        return "test.Async"
+
+
+def check_generic_handlers(sync_handler: grpc.GenericRpcHandler, details: grpc.HandlerCallDetails) -> None:
+    assert_type(sync_handler.service(details), grpc.RpcMethodHandler[Any, Any] | None)
+    async_handler = grpc.method_handlers_generic_handler("test.Async", async_handlers)
+    assert_type(async_handler.service(details), grpc.aio._AsyncRpcMethodHandler[str, str] | None)
+    sync_generic = grpc.method_handlers_generic_handler("test.Sync", sync_handlers)
+    assert_type(sync_generic.service(details), grpc.RpcMethodHandler[str, str] | None)
+    server = grpc.aio.server(handlers=[AsyncGenericHandler(), AsyncServiceHandler(), async_handler, sync_handler])
+    server.add_generic_rpc_handlers([AsyncGenericHandler(), AsyncServiceHandler(), async_handler, sync_handler])
