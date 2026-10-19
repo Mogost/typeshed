@@ -1,10 +1,10 @@
 import abc
 import enum
 import threading
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent import futures
 from types import ModuleType, TracebackType
-from typing import Any, Generic, Protocol, TypeAlias, TypeVar, runtime_checkable, type_check_only
+from typing import Any, Generic, Protocol, TypeAlias, TypeVar, overload, runtime_checkable, type_check_only
 from typing_extensions import Never, Self
 
 from . import aio as aio
@@ -148,28 +148,62 @@ def xds_server_credentials(fallback_credentials: ServerCredentials) -> ServerCre
 class _Behaviour(Protocol):
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
+@overload
+def unary_unary_rpc_method_handler(
+    behavior: Callable[[_TRequest, aio.ServicerContext[_TRequest, _TResponse]], Awaitable[_TResponse]],
+    request_deserializer: _Deserializer[_TRequest] | None = None,
+    response_serializer: _Serializer[_TResponse] | None = None,
+) -> aio._AsyncRpcMethodHandler[_TRequest, _TResponse]: ...
+@overload
 def unary_unary_rpc_method_handler(
     behavior: _Behaviour,
     request_deserializer: _Deserializer[_TRequest] | None = None,
     response_serializer: _Serializer[_TResponse] | None = None,
 ) -> RpcMethodHandler[_TRequest, _TResponse]: ...
+
+@overload
+def unary_stream_rpc_method_handler(
+    behavior: Callable[[_TRequest, aio.ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse] | Awaitable[None]],
+    request_deserializer: _Deserializer[_TRequest] | None = None,
+    response_serializer: _Serializer[_TResponse] | None = None,
+) -> aio._AsyncRpcMethodHandler[_TRequest, _TResponse]: ...
+@overload
 def unary_stream_rpc_method_handler(
     behavior: _Behaviour,
     request_deserializer: _Deserializer[_TRequest] | None = None,
     response_serializer: _Serializer[_TResponse] | None = None,
 ) -> RpcMethodHandler[_TRequest, _TResponse]: ...
+
+@overload
+def stream_unary_rpc_method_handler(
+    behavior: Callable[[AsyncIterator[_TRequest], aio.ServicerContext[_TRequest, _TResponse]], Awaitable[_TResponse]],
+    request_deserializer: _Deserializer[_TRequest] | None = None,
+    response_serializer: _Serializer[_TResponse] | None = None,
+) -> aio._AsyncRpcMethodHandler[_TRequest, _TResponse]: ...
+@overload
 def stream_unary_rpc_method_handler(
     behavior: _Behaviour,
     request_deserializer: _Deserializer[_TRequest] | None = None,
     response_serializer: _Serializer[_TResponse] | None = None,
 ) -> RpcMethodHandler[_TRequest, _TResponse]: ...
+
+@overload
+def stream_stream_rpc_method_handler(
+    behavior: Callable[
+        [AsyncIterator[_TRequest], aio.ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse] | Awaitable[None]
+    ],
+    request_deserializer: _Deserializer[_TRequest] | None = None,
+    response_serializer: _Serializer[_TResponse] | None = None,
+) -> aio._AsyncRpcMethodHandler[_TRequest, _TResponse]: ...
+@overload
 def stream_stream_rpc_method_handler(
     behavior: _Behaviour,
     request_deserializer: _Deserializer[_TRequest] | None = None,
     response_serializer: _Serializer[_TResponse] | None = None,
 ) -> RpcMethodHandler[_TRequest, _TResponse]: ...
+
 def method_handlers_generic_handler(
-    service: str, method_handlers: dict[str, RpcMethodHandler[Any, Any]]
+    service: str, method_handlers: Mapping[str, RpcMethodHandler[Any, Any] | aio._AsyncRpcMethodHandler[Any, Any]]
 ) -> GenericRpcHandler: ...
 
 # Channel Ready Future:

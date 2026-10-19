@@ -445,9 +445,14 @@ class _AsyncRpcMethodHandler(Generic[_TRequest, _TResponse]):
     request_deserializer: _Deserializer[_TRequest] | None
     response_serializer: _Serializer[_TResponse] | None
     unary_unary: Callable[[_TRequest, ServicerContext[_TRequest, _TResponse]], Awaitable[_TResponse]] | None
-    unary_stream: Callable[[_TRequest, ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse]] | None
+    unary_stream: (
+        Callable[[_TRequest, ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse] | Awaitable[None]] | None
+    )
     stream_unary: Callable[[AsyncIterator[_TRequest], ServicerContext[_TRequest, _TResponse]], Awaitable[_TResponse]] | None
-    stream_stream: Callable[[AsyncIterator[_TRequest], ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse]] | None
+    stream_stream: (
+        Callable[[AsyncIterator[_TRequest], ServicerContext[_TRequest, _TResponse]], AsyncIterator[_TResponse] | Awaitable[None]]
+        | None
+    )
 
 class ServerInterceptor(metaclass=abc.ABCMeta):
     # This method (not the class) is generic over _TRequest and _TResponse

@@ -34,3 +34,20 @@ class NoopAioInterceptor(grpc.aio.ServerInterceptor):
 
 
 grpc.aio.server(interceptors=[NoopAioInterceptor()])
+
+
+class WrappingAioInterceptor(grpc.aio.ServerInterceptor):
+    async def intercept_service(
+        self,
+        continuation: Callable[[grpc.HandlerCallDetails], Awaitable[_AsyncRpcMethodHandler[RequestT, ResponseT] | None]],
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> _AsyncRpcMethodHandler[RequestT, ResponseT] | None:
+        handler = await continuation(handler_call_details)
+        if handler is None or handler.unary_unary is None:
+            return handler
+        inner = handler.unary_unary
+
+        async def behavior(request: RequestT, context: grpc.aio.ServicerContext[RequestT, ResponseT]) -> ResponseT:
+            return await inner(request, context)
+
+        return grpc.unary_unary_rpc_method_handler(behavior, handler.request_deserializer, handler.response_serializer)
